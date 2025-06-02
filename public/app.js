@@ -3,6 +3,8 @@ const map = {
   height: 1000
 };
 
+const imgPlayer = document.getElementById("img-player");
+const imgPotion = document.getElementById("img-potion");
 
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
@@ -189,30 +191,44 @@ function draw() {
     ctx.stroke();
   }
   // --- Potion visible sur la carte ---
-ctx.fillStyle = potionOnMap.color;
-ctx.beginPath();
-ctx.arc(potionOnMap.x - camX, potionOnMap.y - camY, potionOnMap.radius, 0, Math.PI * 2);
-ctx.fill();
+ctx.drawImage(
+  imgPotion,
+  potionOnMap.x - camX - potionOnMap.radius,
+  potionOnMap.y - camY - potionOnMap.radius,
+  potionOnMap.radius * 2,
+  potionOnMap.radius * 2
+);
+
+
 
 
   // --- Joueur (au centre de l’écran) ---
-  ctx.fillStyle = player.color;
-  ctx.beginPath();
-  ctx.arc(canvas.width / 2, canvas.height / 2, player.size, 0, Math.PI * 2);
-  ctx.fill();
+  ctx.drawImage(
+  imgPlayer,
+  canvas.width / 2 - player.size,
+  canvas.height / 2 - player.size,
+  player.size * 2,
+  player.size * 2
+);
+
 
   // --- Potions ---
-  potions.forEach(p => {
-    ctx.fillStyle = p.color;
-    ctx.beginPath();
-    ctx.arc(p.x - camX, p.y - camY, p.radius, 0, Math.PI * 2);
-    ctx.fill();
-  });
+ potions.forEach(p => {
+  ctx.drawImage(
+    imgPotion,
+    p.x - camX - p.radius,
+    p.y - camY - p.radius,
+    p.radius * 2,
+    p.radius * 2
+  );
+});
+
   
   // Ramassage de la potion
 const dx = player.x - potionOnMap.x;
 const dy = player.y - potionOnMap.y;
 const dist = Math.sqrt(dx * dx + dy * dy);
+
 
 if (dist < player.size + potionOnMap.radius && !player.inventory) {
   player.inventory = { ...potionOnMap }; // copie de l’objet
