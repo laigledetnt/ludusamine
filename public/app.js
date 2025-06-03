@@ -1,13 +1,8 @@
-const map = {
-  width: 1000,
-  height: 1000
-}; 
-
-const imgPlayer = document.getElementById("img-player");
-const imgPotion = document.getElementById("img-potion");
-
+const map = { width: 1000, height: 1000 };
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
+const imgPlayer = document.getElementById("img-player");
+const imgPotion = document.getElementById("img-potion");
 
 function resizeCanvas() {
   canvas.width = window.innerWidth;
@@ -19,27 +14,24 @@ window.addEventListener('resize', resizeCanvas);
 const player = {
   x: canvas.width / 2,
   y: canvas.height / 2,
-  size: 20,
+  size: 60,
   speed: 10,
-  color: "lime",
-  inventory: null // 👈 ICI !
+  inventory: null
 };
-
 
 const keys = {};
 document.addEventListener("keydown", e => keys[e.key] = true);
 document.addEventListener("keyup", e => keys[e.key] = false);
 
-// Souris (PC) ou doigt (mobile)
 const mouse = { x: canvas.width / 2, y: canvas.height / 2 };
 let touchActive = false;
+
 let potionOnMap = {
   x: Math.random() * map.width,
   y: Math.random() * map.height,
-  radius: 10,
-  color: "aqua",
-  effect: "slow"
+  radius: 30,
 };
+
 canvas.addEventListener("mousemove", e => {
   const rect = canvas.getBoundingClientRect();
   mouse.x = e.clientX - rect.left;
@@ -47,11 +39,10 @@ canvas.addEventListener("mousemove", e => {
 });
 
 canvas.addEventListener("touchstart", e => {
- const rect = canvas.getBoundingClientRect();
-const touch = e.touches[0];
-mouse.x = touch.clientX - rect.left;
-mouse.y = touch.clientY - rect.top;
-
+  const rect = canvas.getBoundingClientRect();
+  const touch = e.touches[0];
+  mouse.x = touch.clientX - rect.left;
+  mouse.y = touch.clientY - rect.top;
   touchActive = true;
   shootPotion();
 });
@@ -62,27 +53,26 @@ canvas.addEventListener("touchmove", e => {
   mouse.y = touch.clientY;
 });
 
-canvas.addEventListener("touchend", () => {
-  touchActive = false;
-});
-
+canvas.addEventListener("touchend", () => touchActive = false);
 canvas.addEventListener("click", shootPotion);
 
 const potions = [];
+const MAX_DISTANCE = 400;
 
 function shootPotion() {
-  if (!player.inventory) return; // ❌ Pas de potion
+  if (!player.inventory) return;
+  potions.push(createPotionShot(player.inventory));
+  player.inventory = null;
+}
 
+function createPotionShot(potion) {
   const camX = player.x - canvas.width / 2;
   const camY = player.y - canvas.height / 2;
-
   const worldMouseX = mouse.x + camX;
   const worldMouseY = mouse.y + camY;
-
   const angle = Math.atan2(worldMouseY - player.y, worldMouseX - player.x);
 
-  // 🔥 Créer le tir
-  potions.push({
+  return {
     x: player.x,
     y: player.y,
     startX: player.x,
@@ -90,22 +80,11 @@ function shootPotion() {
     angle,
     speed: 30,
     radius: 10,
-    color: player.inventory.color,
-    effect: player.inventory.effect
-  });
-
-  // ✅ Supprime la potion de l'inventaire immédiatement
-  player.inventory = null;
+    color: potion.color,
+    effect: potion.effect
+  };
 }
-
-
-
-
-
-
-
-
-
+let facingLeft = false;
 
 function update() {
   // Déplacement clavier
@@ -114,69 +93,56 @@ function update() {
   if (keys["q"] || keys["ArrowLeft"]) player.x -= player.speed;
   if (keys["d"] || keys["ArrowRight"]) player.x += player.speed;
 
-  // Déplacement mobile : vers le doigt
+  // Déplacement tactile
   if (touchActive) {
     const dx = mouse.x - player.x;
     const dy = mouse.y - player.y;
-    const dist = Math.sqrt(dx * dx + dy * dy);
+    const dist = Math.hypot(dx, dy);
     if (dist > 5) {
       player.x += (dx / dist) * player.speed;
       player.y += (dy / dist) * player.speed;
     }
   }
 
-  // Potions
+  // Mouvements des potions
   for (let i = potions.length - 1; i >= 0; i--) {
     const p = potions[i];
     p.x += Math.cos(p.angle) * p.speed;
     p.y += Math.sin(p.angle) * p.speed;
-   // ✅ Bon ! Basé sur les vraies limites de la carte
-if (
-  p.x < 0 || p.x > map.width ||
-  p.y < 0 || p.y > map.height
-) {
-  potions.splice(i, 1);
-}
 
+    const dx = p.x - p.startX;
+    const dy = p.y - p.startY;
+    const dist = Math.hypot(dx, dy);
+
+    if (dist > MAX_DISTANCE || p.x < 0 || p.x > map.width || p.y < 0 || p.y > map.height) {
+      potions.splice(i, 1);
+    }
   }
-  // --- Ramassage de la potion ---
-const dx = player.x - potionOnMap.x;
-const dy = player.y - potionOnMap.y;
-const dist = Math.sqrt(dx * dx + dy * dy);
 
-if (dist < player.size + potionOnMap.radius && !player.inventory) {
-  player.inventory = { ...potionOnMap }; // copie de l’objet
-  potionOnMap.x = -1000; // déplace hors écran
+  // Ramassage de potion
+  const dx = player.x - potionOnMap.x;
+  const dy = player.y - potionOnMap.y;
+  const dist = Math.hypot(dx, dy);
+  if (dist < player.size + potionOnMap.radius && !player.inventory) {
+    player.inventory = { ...potionOnMap };
+    potionOnMap.x = -1000;
 
-  setTimeout(() => {
-    potionOnMap = {
-      x: Math.random() * map.width,
-      y: Math.random() * map.height,
-      radius: 10,
-      color: "aqua",
-      effect: "slow"
-    };
-  }, 2000);
+    setTimeout(() => {
+      potionOnMap = {
+        x: Math.random() * map.width,
+        y: Math.random() * map.height,
+        radius: 30,
+      };
+    }, 2000);
+  }
+  // Détermine la direction vers laquelle le joueur regarde
+const camX = player.x - canvas.width / 2;
+const mouseWorldX = mouse.x + camX;
+facingLeft = mouseWorldX > player.x;
+
 }
 
-}
-player.inventory = null; // 1 potion max pour l'instant
-
-function draw() {
-  
-  
-
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  
-
-  const camX = player.x - canvas.width / 2;
-  const camY = player.y - canvas.height / 2;
-
-  // --- Fond de carte ---
-  ctx.fillStyle = "#444"; // fond gris foncé
-  ctx.fillRect(-camX, -camY, map.width, map.height);
-
-  // --- Quadrillage (optionnel) ---
+function drawGrid(camX, camY) {
   ctx.strokeStyle = "#555";
   for (let x = 0; x < map.width; x += 100) {
     ctx.beginPath();
@@ -190,88 +156,63 @@ function draw() {
     ctx.lineTo(map.width - camX, y - camY);
     ctx.stroke();
   }
-  // --- Potion visible sur la carte ---
-ctx.drawImage(
-  imgPotion,
-  potionOnMap.x - camX - potionOnMap.radius,
-  potionOnMap.y - camY - potionOnMap.radius,
-  potionOnMap.radius * 2,
-  potionOnMap.radius * 2
-);
+}
 
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+  const camX = player.x - canvas.width / 2;
+  const camY = player.y - canvas.height / 2;
 
+  ctx.fillStyle = "#444";
+  ctx.fillRect(-camX, -camY, map.width, map.height);
 
-  // --- Joueur (au centre de l’écran) ---
+  drawGrid(camX, camY);
+
+  // Potion sur la carte
   ctx.drawImage(
+    imgPotion,
+    potionOnMap.x - camX - potionOnMap.radius,
+    potionOnMap.y - camY - potionOnMap.radius,
+    potionOnMap.radius * 2,
+    potionOnMap.radius * 2
+  );
+
+  // Joueur (centré)
+ ctx.save();
+
+ctx.translate(canvas.width / 2, canvas.height / 2);
+if (facingLeft) {
+  ctx.scale(-1, 1); // miroir horizontal
+}
+
+ctx.drawImage(
   imgPlayer,
-  canvas.width / 2 - player.size,
-  canvas.height / 2 - player.size,
+  facingLeft ? -player.size : -player.size, // l’origine reste au même endroit
+  -player.size,
   player.size * 2,
   player.size * 2
 );
 
-
-  // --- Potions ---
- potions.forEach(p => {
-  ctx.drawImage(
-    imgPotion,
-    p.x - camX - p.radius,
-    p.y - camY - p.radius,
-    p.radius * 2,
-    p.radius * 2
-  );
-});
-
-  
-  // Ramassage de la potion
-const dx = player.x - potionOnMap.x;
-const dy = player.y - potionOnMap.y;
-const dist = Math.sqrt(dx * dx + dy * dy);
+ctx.restore();
 
 
-if (dist < player.size + potionOnMap.radius && !player.inventory) {
-  player.inventory = { ...potionOnMap }; // copie de l’objet
-  potionOnMap.x = -1000; // déplace hors écran en attendant le respawn
-
-  setTimeout(() => {
-    potionOnMap = {
-      x: Math.random() * map.width,
-      y: Math.random() * map.height,
-      radius: 10,
-      color: "aqua",
-      effect: "slow"
-    };
-  }, 2000); // respawn après 2 secondes
+  // Potions tirées
+  potions.forEach(p => {
+    ctx.drawImage(
+      imgPotion,
+      p.x - camX - p.radius,
+      p.y - camY - p.radius,
+      p.radius * 2,
+      p.radius * 2
+    );
+  });
 }
-
-}
-
-
 
 function loop() {
   update();
-  
   draw();
   requestAnimationFrame(loop);
-  const MAX_DISTANCE = 400; // Rayon max (en pixels)
-
-for (let i = potions.length - 1; i >= 0; i--) {
-  const p = potions[i];
-  p.x += Math.cos(p.angle) * p.speed;
-  p.y += Math.sin(p.angle) * p.speed;
-
-  // Distance depuis le point de lancement
-  const dx = p.x - p.startX;
-  const dy = p.y - p.startY;
-  const dist = Math.sqrt(dx * dx + dy * dy);
-
-  if (dist > MAX_DISTANCE) {
-    potions.splice(i, 1);
-  }
-}
-
-
 }
 
 loop();
