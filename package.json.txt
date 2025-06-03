@@ -1,0 +1,24 @@
+{
+    "name": "multiplayer-three",
+    "version": "1.0.0",
+    "main": "server.js",
+    "dependencies": {
+        "express": "^4.21.2",
+        "socket.io": "^4.8.1"
+    },
+    "scripts": {
+        "start": "node server.js"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/laigledetnt/multi.git"
+    },
+    "keywords": [],
+    "author": "",
+    "license": "ISC",
+    "bugs": {
+        "url": "https://github.com/laigledetnt/multi/issues"
+    },
+    "homepage": "https://github.com/laigledetnt/multi#readme",
+    "description": ""
+}
