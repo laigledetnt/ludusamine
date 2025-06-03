@@ -145,9 +145,7 @@ function drawHealthBar(x, y, width, height, health, maxHealth) {
 setInterval(() => {
   socket.emit("getScores");
 }, 5000);
-setInterval(() => {
-  io.emit("potionsUpdate", potions);
-}, 50);
+
 socket.on("potionsUpdate", serverPotions => {
   potions.length = 0;
   potions.push(...serverPotions);
@@ -234,14 +232,14 @@ function drawGrid(camX, camY) {
   }
 }
 
+
 function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
   const camX = player.x - canvas.width / 2;
   const camY = player.y - canvas.height / 2;
 
-  ctx.fillStyle = "#444";
-  ctx.fillRect(-camX, -camY, map.width, map.height);
+ 
 
   drawGrid(camX, camY);
 
@@ -253,6 +251,7 @@ function draw() {
     potionOnMap.radius * 2,
     potionOnMap.radius * 2
   );
+
 
   // Joueur (centré)
 ctx.save();
