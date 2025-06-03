@@ -1,3 +1,4 @@
+const socket = io();
 const map = { width: 1000, height: 1000 };
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
@@ -10,14 +11,56 @@ function resizeCanvas() {
 }
 resizeCanvas();
 window.addEventListener('resize', resizeCanvas);
+socket.on("scoreBoard", scores => {
+  // Affichage simple dans la console (à améliorer)
+  console.log("Scores :", scores);
+});
+
+socket.on("potionShot", potion => {
+  potions.push(potion);
+});
+
+
+socket.on("playerDisconnected", id => {
+  delete otherPlayers[id];
+});
 
 const player = {
   x: canvas.width / 2,
   y: canvas.height / 2,
   size: 60,
   speed: 10,
-  inventory: null
+  inventory: null,
+  health: 100, // vie max
+  maxHealth: 100
 };
+
+socket.on("playerMoved", data => {
+  if (data.id === socket.id) {
+    // Mise à jour du joueur local
+    player.x = data.x;
+    player.y = data.y;
+    player.facingRight = data.facingRight;
+    player.health = data.health;
+    player.maxHealth = data.maxHealth;
+  } else {
+    // Mise à jour autres joueurs
+    if (!otherPlayers[data.id]) {
+      otherPlayers[data.id] = {};
+    }
+    Object.assign(otherPlayers[data.id], {
+      x: data.x,
+      y: data.y,
+      facingRight: data.facingRight,
+      health: data.health,
+      maxHealth: data.maxHealth
+    });
+  }
+});
+
+
+const otherPlayers = {};
+
 
 const keys = {};
 document.addEventListener("keydown", e => keys[e.key] = true);
@@ -59,9 +102,11 @@ canvas.addEventListener("click", shootPotion);
 const potions = [];
 const MAX_DISTANCE = 400;
 
+
 function shootPotion() {
   if (!player.inventory) return;
-  potions.push(createPotionShot(player.inventory));
+  const potionShot = createPotionShot(player.inventory);
+  socket.emit("potionShot", potionShot);
   player.inventory = null;
 }
 
@@ -71,6 +116,8 @@ function createPotionShot(potion) {
   const worldMouseX = mouse.x + camX;
   const worldMouseY = mouse.y + camY;
   const angle = Math.atan2(worldMouseY - player.y, worldMouseX - player.x);
+
+
 
   return {
     x: player.x,
@@ -84,7 +131,27 @@ function createPotionShot(potion) {
     effect: potion.effect
   };
 }
-let facingLeft = false;
+
+
+function drawHealthBar(x, y, width, height, health, maxHealth) {
+  ctx.fillStyle = "red";
+  ctx.fillRect(x, y, width, height);
+  ctx.fillStyle = "green";
+  const healthWidth = (health / maxHealth) * width;
+  ctx.fillRect(x, y, healthWidth, height);
+}
+
+
+setInterval(() => {
+  socket.emit("getScores");
+}, 5000);
+setInterval(() => {
+  io.emit("potionsUpdate", potions);
+}, 50);
+socket.on("potionsUpdate", serverPotions => {
+  potions.length = 0;
+  potions.push(...serverPotions);
+});
 
 function update() {
   // Déplacement clavier
@@ -104,20 +171,7 @@ function update() {
     }
   }
 
-  // Mouvements des potions
-  for (let i = potions.length - 1; i >= 0; i--) {
-    const p = potions[i];
-    p.x += Math.cos(p.angle) * p.speed;
-    p.y += Math.sin(p.angle) * p.speed;
 
-    const dx = p.x - p.startX;
-    const dy = p.y - p.startY;
-    const dist = Math.hypot(dx, dy);
-
-    if (dist > MAX_DISTANCE || p.x < 0 || p.x > map.width || p.y < 0 || p.y > map.height) {
-      potions.splice(i, 1);
-    }
-  }
 
   // Ramassage de potion
   const dx = player.x - potionOnMap.x;
@@ -138,7 +192,29 @@ function update() {
   // Détermine la direction vers laquelle le joueur regarde
 const camX = player.x - canvas.width / 2;
 const mouseWorldX = mouse.x + camX;
-facingLeft = mouseWorldX > player.x;
+player.facingRight = mouseWorldX > player.x;  // regarde à droite si la souris est à droite du joueur
+
+socket.emit("playerMove", {
+  x: player.x,
+  y: player.y,
+  facingRight: player.facingRight,
+  health: player.health,
+  maxHealth: player.maxHealth
+});
+
+
+
+
+
+if (player.health <= 0) {
+  socket.emit("playerDied");
+  player.health = player.maxHealth;
+  player.x = Math.random() * map.width;
+  player.y = Math.random() * map.height;
+}
+
+
+
 
 }
 
@@ -179,22 +255,58 @@ function draw() {
   );
 
   // Joueur (centré)
- ctx.save();
-
+ctx.save();
 ctx.translate(canvas.width / 2, canvas.height / 2);
-if (facingLeft) {
-  ctx.scale(-1, 1); // miroir horizontal
+if (!player.facingRight) {  // pareil, inverse si regarde à gauche
+  ctx.scale(-1, 1);
 }
-
 ctx.drawImage(
   imgPlayer,
-  facingLeft ? -player.size : -player.size, // l’origine reste au même endroit
+  -player.size,
   -player.size,
   player.size * 2,
   player.size * 2
 );
-
 ctx.restore();
+
+
+
+drawHealthBar(
+  canvas.width / 2 - 30,
+  canvas.height / 2 - player.size - 20,
+  60,
+  8,
+  player.health,
+  player.maxHealth
+);
+
+
+
+for (const id in otherPlayers) {
+  const p = otherPlayers[id];
+  ctx.save();
+  ctx.translate(p.x - camX, p.y - camY);
+  if (!p.facingRight) {  // si regarde à gauche, on inverse horizontalement
+    ctx.scale(-1, 1);
+  }
+  ctx.drawImage(
+    imgPlayer,
+    -player.size,
+    -player.size,
+    player.size * 2,
+    player.size * 2
+  );
+  ctx.restore();
+
+  drawHealthBar(
+    p.x - camX - 30,
+    p.y - camY - player.size - 20,
+    60,
+    8,
+    p.health,
+    p.maxHealth
+  );
+}
 
 
   // Potions tirées
