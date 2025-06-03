@@ -1,7 +1,7 @@
 const map = {
   width: 1000,
   height: 1000
-};
+}; 
 
 const imgPlayer = document.getElementById("img-player");
 const imgPotion = document.getElementById("img-potion");
