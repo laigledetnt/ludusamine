@@ -11,13 +11,13 @@
     },
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/laigledetnt/multi.git"
+        "url": "git+https://github.com/laigledetnt/ludusamine.git"
     },
     "keywords": [],
     "author": "",
     "license": "ISC",
     "bugs": {
-        "url": "https://github.com/laigledetnt/multi/issues"
+        "url": "https://github.com/laigledetnt/ludusamine/issues"
     },
     "homepage": "https://github.com/laigledetnt/multi#readme",
     "description": ""
