@@ -7,7 +7,7 @@ const imgPotion = document.getElementById("img-potion");
 const imgTile = document.getElementById("img-tile");
 const imgPotionSheet = document.getElementById("img-potion-sheet");
 
-const map = { width: 300, height: 300 };
+const map = { width: 3000, height: 3000 };
 const keys = {};
 const potions = [];
 const otherPlayers = {};
