@@ -1,9 +1,10 @@
 const socket = io();
-const map = { width: 1000, height: 1000 };
+const map = { width: 4000, height: 4000 };
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 const imgPlayer = document.getElementById("img-player");
 const imgPotion = document.getElementById("img-potion");
+const imgTile = document.getElementById("img-tile");
 
 function resizeCanvas() {
   canvas.width = window.innerWidth;
@@ -153,24 +154,12 @@ socket.on("potionsUpdate", serverPotions => {
 
 function update() {
   // Déplacement clavier
-  if (keys["z"] || keys["ArrowUp"]) player.y -= player.speed;
-  if (keys["s"] || keys["ArrowDown"]) player.y += player.speed;
-  if (keys["q"] || keys["ArrowLeft"]) player.x -= player.speed;
-  if (keys["d"] || keys["ArrowRight"]) player.x += player.speed;
+  if (keys["z"] ) player.y -= player.speed;
+  if (keys["s"] ) player.y += player.speed;
+  if (keys["q"] ) player.x -= player.speed;
+  if (keys["d"] ) player.x += player.speed;
 
-  // Déplacement tactile
-  if (touchActive) {
-    const dx = mouse.x - player.x;
-    const dy = mouse.y - player.y;
-    const dist = Math.hypot(dx, dy);
-    if (dist > 5) {
-      player.x += (dx / dist) * player.speed;
-      player.y += (dy / dist) * player.speed;
-    }
-  }
-
-
-
+ 
   // Ramassage de potion
   const dx = player.x - potionOnMap.x;
   const dy = player.y - potionOnMap.y;
@@ -212,25 +201,46 @@ if (player.health <= 0) {
 }
 
 
+// Empêche le joueur de sortir de la map
+player.x = Math.max(player.size-32, Math.min(map.width - player.size-32, player.x));
+player.y = Math.max(player.size-18, Math.min(map.height - player.size+15, player.y));
 
 
 }
 
-function drawGrid(camX, camY) {
-  ctx.strokeStyle = "#555";
-  for (let x = 0; x < map.width; x += 100) {
-    ctx.beginPath();
-    ctx.moveTo(x - camX, 0 - camY);
-    ctx.lineTo(x - camX, map.height - camY);
-    ctx.stroke();
-  }
-  for (let y = 0; y < map.height; y += 100) {
-    ctx.beginPath();
-    ctx.moveTo(0 - camX, y - camY);
-    ctx.lineTo(map.width - camX, y - camY);
-    ctx.stroke();
+function drawBackground(camX, camY) {
+  const tileSize = 100;
+
+  // Calcul des bords visibles de l'écran
+  const viewLeft = camX;
+  const viewRight = camX + canvas.width;
+  const viewTop = camY;
+  const viewBottom = camY + canvas.height;
+
+  // Dessiner un fond noir sur tout le canvas d'abord
+  ctx.fillStyle = "black";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Dessiner les tuiles uniquement à l'intérieur de la map
+  const startX = Math.max(Math.floor(viewLeft / tileSize) * tileSize, 0);
+  const startY = Math.max(Math.floor(viewTop / tileSize) * tileSize, 0);
+  const endX = Math.min(viewRight, map.width);
+  const endY = Math.min(viewBottom, map.height);
+
+  for (let x = startX; x < endX; x += tileSize) {
+    for (let y = startY; y < endY; y += tileSize) {
+      ctx.drawImage(
+        imgTile,
+        x - camX,
+        y - camY,
+        tileSize,
+        tileSize
+      );
+    }
   }
 }
+
+
 
 
 function draw() {
@@ -241,7 +251,7 @@ function draw() {
 
  
 
-  drawGrid(camX, camY);
+  drawBackground(camX, camY);
 
   // Potion sur la carte
   ctx.drawImage(
