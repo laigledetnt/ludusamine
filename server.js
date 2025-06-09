@@ -10,7 +10,7 @@ const players = {};
 const potions = [];
 const scores = {};
 
-const map = { width: 1000, height: 1000 };
+const map = { width: 3000, height: 3000 };
 const MAX_DISTANCE = 400;
 
 io.on("connection", socket => {
@@ -58,8 +58,8 @@ io.on("connection", socket => {
       startX: data.x,
       startY: data.y,
       angle: data.angle,
-      speed: 20,
-      radius: 10,
+      speed: 40,
+      radius: 20,
       color: data.color,
       effect: data.effect
     });

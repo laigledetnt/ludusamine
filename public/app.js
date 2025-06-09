@@ -1,5 +1,5 @@
 const socket = io();
-const map = { width: 4000, height: 4000 };
+const map = { width: 3000, height: 3000 };
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 const imgPlayer = document.getElementById("img-player");
