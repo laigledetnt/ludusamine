@@ -1,22 +1,71 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>Jeu de Potions</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
-    body, html { margin: 0; padding: 0; overflow: hidden; }
-    canvas { display: block; background: #222; touch-action: none; }
-  </style>
+    html, body {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  height: 100%;
+  width: 100%;
+  
+}
+   #list {
+    
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: rgba(0, 0, 0, 0.85);
+  color: white;
+  padding: 10px;
+  width: 40%;
+  z-index: 10;
+
+}
+
+#toggleMenu {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 11;
+  padding: 10px 20px;
+  font-size: 16px;
+  cursor: pointer;
+  background-color: #444;
+  border: none;
+  border-radius: 10px;
+  color: white;
+}
+
+.hidden {
+  display: none !important;
+}
+
+ </style>
+    <div id="list" class="hidden">
+    <img src="list.jpg"  style="max-width: 100%; border-radius: 10px;" />
+    </div>
 </head>
 <body>
-<img id="img-tile" src="floor.jpg" hidden>
 
-<img id="img-player" src="player.jpg" hidden>
-<img id="img-potion" src="potion.jpg" hidden>
-<script src="/socket.io/socket.io.js"></script>
+  <button id="toggleMenu">list effets</button>
+
+  <div id="potionMenu" class="hidden">
+    <h2>Effets des potions</h2>
+    <div id="potionList"></div>
+  </div>
+
   <canvas id="game"></canvas>
-  <script src="app.js"></script>
 
+  <img id="img-player" src="player.jpg" hidden />
+  <img id="img-potion" src="potion.jpg" hidden />
+  <img id="img-tile" src="floor.jpg" hidden />
+ 
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="client.js"></script>
 </body>
 </html>
