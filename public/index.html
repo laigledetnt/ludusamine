@@ -6,52 +6,74 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     html, body {
-  margin: 0;
-  padding: 0;
-  overflow: hidden;
-  height: 100%;
-  width: 100%;
-  
-}
-   #list {
-    
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  background: rgba(0, 0, 0, 0.85);
-  color: white;
-  padding: 10px;
-  width: 30%;
-  z-index: 10;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      height: 100%;
+      width: 100%;
+    }
 
-}
+    #list {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: rgba(0, 0, 0, 0.85);
+      color: white;
+      padding: 10px;
+      width: 30%;
+      z-index: 10;
+      border-radius: 10px;
+    }
 
-#toggleMenu {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  z-index: 11;
-  padding: 10px 20px;
-  font-size: 16px;
-  cursor: pointer;
-  background-color: #444;
-  border: none;
-  border-radius: 10px;
-  color: white;
-}
+    #commentaire {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: rgba(0, 0, 0, 0.7);
+      color: white;
+      padding: 8px 12px;
+      font-family: Arial, sans-serif;
+      font-size: 14px;
+      border-radius: 8px;
+      z-index: 10;
+      line-height: 1.5;
+      cursor: pointer;
+    }
 
-.hidden {
-  display: none !important;
-}
+    #toggleMenu {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      z-index: 11;
+      padding: 10px 20px;
+      font-size: 16px;
+      cursor: pointer;
+      background-color: #444;
+      border: none;
+      border-radius: 10px;
+      color: white;
+    }
 
- </style>
-    <div id="list" class="hidden">
-    <img src="list.jpg"  style="max-width: 100%; border-radius: 10px;" />
-    </div>
+    .hidden {
+      display: none !important;
+    }
+  </style>
 </head>
 <body>
 
   <button id="toggleMenu">list effets</button>
+
+  <div id="list" class="hidden">
+    <img src="list.jpg" style="max-width: 100%; border-radius: 10px;" />
+  </div>
+
+  <div id="commentaire">
+    🎮 Contrôles :<br>
+    - ZQSD pour se déplacer<br>
+    - Clic gauche(sur ennemi) : tirer<br>
+    - Clic droit : boire potion<br>
+    - Ramasse les potions pour les utiliser !
+  </div>
 
   <div id="potionMenu" class="hidden">
     <h2>Effets des potions</h2>
@@ -63,9 +85,14 @@
   <img id="img-player" src="player.jpg" hidden />
   <img id="img-potion" src="potion.jpg" hidden />
   <img id="img-tile" src="floor.jpg" hidden />
- 
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="client.js"></script>
+  <script>
+    const commentaire = document.getElementById('commentaire');
+    commentaire.addEventListener('click', () => {
+      commentaire.style.display = 'none';
+    });
+  </script>
 </body>
 </html>
