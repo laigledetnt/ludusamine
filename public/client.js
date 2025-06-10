@@ -6,7 +6,7 @@ const imgPlayer = document.getElementById("img-player");
 const imgPotion = document.getElementById("img-potion");
 const imgTile = document.getElementById("img-tile");
 const imgPotionSheet = document.getElementById("img-potion-sheet");
-
+const game = { mapElements: [] };
 const map = { width: 3000, height: 3000 };
 const keys = {};
 const potions = [];
@@ -14,6 +14,8 @@ const otherPlayers = {};
 const mouse = { x: canvas.width / 2, y: canvas.height / 2 };
 let touchActive = false;
 const localPlayers = {}; 
+ const scores = {};
+ let captureZone = null;
  
 const player = {
   x: canvas.width / 2,
@@ -28,12 +30,38 @@ const player = {
 socket.on("healthUpdate", data => {
   console.log("Health update reçue:", data);
   // Exemple : mets à jour la santé du joueur correspondant
-  if (players[data.id]) {
-    players[data.id].health = data.health;
-    players[data.id].maxHealth = data.maxHealth;
+  if (player[data.id]) {
+    player[data.id].health = data.health;
+    player[data.id].maxHealth = data.maxHealth;
     updateHealthBarUI(); // ta fonction pour UI
   }
 });
+
+socket.on("mapElements", elements => {
+  game.mapElements = elements;
+  socket.emit("captureZone", captureZone);
+});
+
+function drawMapElements(ctx, camX, camY) {
+  if (!game.mapElements) return;
+  for (const el of game.mapElements) {
+    if (el.type === "wall") {
+      ctx.fillStyle = "#444";
+      ctx.fillRect(el.x - camX, el.y - camY, el.width, el.height);
+    } else if (el.type === "altar") {
+      ctx.fillStyle = "gold";
+      ctx.beginPath();
+      ctx.arc(el.x - camX, el.y - camY, el.radius, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (el.type === "crystal") {
+      ctx.fillStyle = "aqua";
+      ctx.beginPath();
+      ctx.arc(el.x - camX, el.y - camY, el.radius, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+}
+
 
 
 socket.on("effectApplied", (data) => {
@@ -110,7 +138,47 @@ socket.on("potionsUpdate", serverPotions => {
   potions.push(...serverPotions);
 });
 socket.on("potionShot", potion => potions.push(potion));
-socket.on("scoreBoard", scores => console.log("Scores :", scores));
+function drawScoreBoard(camX, camY) {
+  const sortedScores = Object.entries(scores)
+    .sort((a, b) => b[1] - a[1]);
+
+  // Fond du tableau
+  ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
+  ctx.fillRect(10, 10, 200, 25 + sortedScores.length * 20);
+
+  // Titre
+  ctx.fillStyle = "white";
+  ctx.font = "16px Arial";
+  ctx.fillText("Classement :", 60, 30);
+
+  // Liste des joueurs
+  sortedScores.forEach(([id, score], index) => {
+    if (id === socket.id) {
+      ctx.fillStyle = "lightblue";  // couleur joueur local
+    } else {
+      ctx.fillStyle = "#FF6347";  // couleur autres joueurs
+    }
+
+    const name = `Joueur ${id.slice(0, 4)}`;
+    ctx.fillText(`${index + 1}. ${name} - ${score}`, 75, 50 + index * 20);
+  });
+}
+
+
+socket.on("scoreBoard", serverScores => {
+  console.log("Scores reçus :", serverScores);
+  Object.assign(scores, serverScores);
+});
+
+socket.on('respawn', ({ x, y, score }) => {
+  player.x = x;
+  player.y = y;
+  player.score = score;
+});
+socket.on('updateScores', (serverScores) => {
+  scores = serverScores; // ou Object.assign(scores, serverScores)
+});
+
 socket.on("currentPlayers", serverPlayers => {
   for (const id in serverPlayers) {
     if (id !== socket.id) {
@@ -133,7 +201,12 @@ socket.on("playerMoved", data => {
     Object.assign(otherPlayers[data.id], data);
   }
 });
-
+function isCollidingRectRect(x1, y1, w1, h1, x2, y2, w2, h2) {
+  return x1 < x2 + w2 &&
+         x1 + w1 > x2 &&
+         y1 < y2 + h2 &&
+         y1 + h1 > y2;
+}
 let potionOnMap = generateNewPotion();
 function drinkPotion() {
   if (!player.inventory) return;
@@ -157,11 +230,41 @@ function generateNewPotion() {
 }
 
 function update() {
-  // Déplacement
-  if (keys["z"]) player.y -= player.speed;
-  if (keys["s"]) player.y += player.speed;
-  if (keys["q"]) player.x -= player.speed;
-  if (keys["d"]) player.x += player.speed;
+ if (keys["z"]) {
+  const newY = player.y - player.speed;
+  if (canMoveTo(player.x, newY)) player.y = newY;
+}
+if (keys["s"]) {
+  const newY = player.y + player.speed;
+  if (canMoveTo(player.x, newY)) player.y = newY;
+}
+if (keys["q"]) {
+  const newX = player.x - player.speed;
+  if (canMoveTo(newX, player.y)) player.x = newX;
+}
+if (keys["d"]) {
+  const newX = player.x + player.speed;
+  if (canMoveTo(newX, player.y)) player.x = newX;
+}
+
+function canMoveTo(newX, newY) {
+  const playerHalf = player.size / 2;
+  const playerLeft = newX - playerHalf;
+  const playerTop = newY - playerHalf;
+  const playerWidth = player.size;
+  const playerHeight = player.size;
+
+  // Vérifier chaque mur
+  for (const el of game.mapElements) {
+    if (el.type === "wall") {
+      if (isCollidingRectRect(playerLeft, playerTop, playerWidth, playerHeight,
+                             el.x, el.y, el.width, el.height)) {
+        return false; // collision détectée
+      }
+    }
+  }
+  return true; // pas de collision
+}
 
   // Collision potion
   const dx = player.x - potionOnMap.x;
@@ -250,6 +353,7 @@ function drawHealthBar(x, y, width, height, health, maxHealth) {
 }
 
 function draw() {
+  
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   const camX = player.x - canvas.width / 2;
   const camY = player.y - canvas.height / 2;
@@ -296,9 +400,13 @@ function draw() {
   potions.forEach(p => {
     ctx.drawImage(imgPotion, p.x - camX - p.radius, p.y - camY - p.radius, p.radius * 2, p.radius * 2);
   });
+  drawMapElements(ctx, camX, camY);
+  drawScoreBoard(camX, camY);
+
 }
 
 function loop() {
+  
   update();
   draw();
   requestAnimationFrame(loop);

@@ -7,44 +7,175 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIo(server);
 
-const players = {};
-const potions = [];
-const scores = {};
-
 const map = { width: 3000, height: 3000 };
 const MAX_DISTANCE = 400;
+const CAPTURE_INTERVAL = 5000;
+const POTION_SPEED = 40;
+const POTION_RADIUS = 20;
+
+const spawnPoints = [
+  { x: 200, y: 200 },
+  { x: 2800, y: 200 },
+  { x: 200, y: 2800 },
+  { x: 2800, y: 2800 }
+];
+
+const mapElements = [
+  // Murs extérieurs (bords de la carte)
+  { id: "wall-north", type: "wall", x: 0, y: 0, width: 3000, height: 40 },
+  { id: "wall-west", type: "wall", x: 0, y: 0, width: 40, height: 3000 },
+  { id: "wall-south", type: "wall", x: 0, y: 2960, width: 3000, height: 40 },
+  { id: "wall-east", type: "wall", x: 2960, y: 0, width: 40, height: 3000 },
+
+  // Zone centrale (environ 1000x1000)
+  { id: "center-top-left", type: "wall", x: 1000, y: 1000, width: 350, height: 40 },
+  { id: "center-top-right", type: "wall", x: 1650, y: 1000, width: 350, height: 40 },
+  { id: "center-bottom-left", type: "wall", x: 1000, y: 1960, width: 350, height: 40 },
+  { id: "center-bottom-right", type: "wall", x: 1650, y: 1960, width: 350, height: 40 },
+  { id: "center-left-top", type: "wall", x: 1000, y: 1000, width: 40, height: 350 },
+  { id: "center-left-bottom", type: "wall", x: 1000, y: 1650, width: 40, height: 350 },
+  { id: "center-right-top", type: "wall", x: 1960, y: 1000, width: 40, height: 350 },
+  { id: "center-right-bottom", type: "wall", x: 1960, y: 1650, width: 40, height: 350 }
+];
+
+const captureZone = {
+  x: 1200,
+  y: 1200,
+  width: 600,
+  height: 600
+};
+
+const players = {};
+const potions = [];
+
+// ----------- Fonctions utilitaires -----------
+
+function getRandomSpawn() {
+  return spawnPoints[Math.floor(Math.random() * spawnPoints.length)];
+}
+
+function isPlayerInCaptureZone(player) {
+  return (
+    player.x > captureZone.x &&
+    player.x < captureZone.x + captureZone.width &&
+    player.y > captureZone.y &&
+    player.y < captureZone.y + captureZone.height
+  );
+}
+
+function isCollidingWithWalls(x, y) {
+  for (const element of mapElements) {
+    if (element.type === "wall") {
+      if (
+        x > element.x &&
+        x < element.x + element.width &&
+        y > element.y &&
+        y < element.y + element.height
+      ) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+function isPotionCollidingWithWall(p) {
+  for (const wall of mapElements) {
+    if (wall.type === "wall") {
+      if (
+        p.x > wall.x &&
+        p.x < wall.x + wall.width &&
+        p.y > wall.y &&
+        p.y < wall.y + wall.height
+      ) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+function broadcastScores() {
+  const scores = {};
+  for (const id in players) {
+    scores[id] = players[id].score || 0;
+  }
+  io.emit("updateScores", scores);
+}
+
+function handleDeath(id) {
+  const player = players[id];
+  if (!player) return;
+
+  player.score = 0;
+  player.health = player.maxHealth || 100;
+
+  const spawn = getRandomSpawn();
+  player.x = spawn.x;
+  player.y = spawn.y;
+
+  io.to(id).emit("respawn", {
+    x: player.x,
+    y: player.y,
+    score: player.score
+  });
+
+  broadcastScores();
+}
+
+// ----------- Logique de capture zone -----------
+
+setInterval(() => {
+  for (const id in players) {
+    const player = players[id];
+    if (isPlayerInCaptureZone(player)) {
+      player.score = (player.score || 0) + 1;
+      io.to(id).emit("scoreUpdate", player.score);
+    }
+  }
+  broadcastScores();
+}, CAPTURE_INTERVAL);
+
+// ----------- Gestion Socket.IO -----------
 
 io.on("connection", socket => {
   console.log("Player connected:", socket.id);
 
   // Initialisation du joueur
+  const spawn = getRandomSpawn();
   players[socket.id] = {
-    x: Math.random() * map.width,
-    y: Math.random() * map.height,
+    x: spawn.x,
+    y: spawn.y,
     facingRight: false,
     health: 100,
-    maxHealth: 100
+    maxHealth: 100,
+    score: 0
   };
+
+  // Envoie les murs
+  socket.emit("mapElements", mapElements);
 
   // Envoie l'état des autres joueurs au nouveau
   for (const id in players) {
     if (id !== socket.id) {
-      socket.emit("playerMoved", {
-        id,
-        ...players[id]
-      });
+      socket.emit("playerMoved", { id, ...players[id] });
     }
   }
 
-  // Notifie les autres joueurs de ce nouveau joueur
+  // Informe les autres du nouveau joueur
   socket.broadcast.emit("playerMoved", {
     id: socket.id,
     ...players[socket.id]
   });
 
-  // Déplacement d'un joueur
+  // Déplacement joueur avec collision murs
   socket.on("playerMove", data => {
     if (!players[socket.id]) return;
+
+    if (isCollidingWithWalls(data.x, data.y)) {
+      // Blocage déplacement si collision
+      return;
+    }
 
     players[socket.id].x = data.x;
     players[socket.id].y = data.y;
@@ -69,25 +200,28 @@ io.on("connection", socket => {
       startX: data.x,
       startY: data.y,
       angle: data.angle,
-      speed: 40,
-      radius: 20,
+      speed: POTION_SPEED,
+      radius: POTION_RADIUS,
       color: data.color,
       effect: data.effect
     });
   });
 
-  // Demande de tableau des scores
-  socket.on("getScores", () => {
-    socket.emit("scoreBoard", scores);
-  });
-
-  // Application d'un effet sur soi-même (via un event dédié)
+  // Application d'un effet sur soi-même
   socket.on("applyEffectOnSelf", effect => {
-    const playerId = socket.id;
-    const player = players[playerId];
+    const player = players[socket.id];
     if (!player) return;
 
-    applyEffect(effect, player, playerId, playerId, scores, players, io, map, socket);
+    applyEffect(effect, player, socket.id, socket.id, null, players, io, map, socket);
+  });
+
+  // Demande tableau des scores
+  socket.on("getScores", () => {
+    const scores = {};
+    for (const id in players) {
+      scores[id] = players[id].score || 0;
+    }
+    socket.emit("scoreBoard", scores);
   });
 
   // Déconnexion
@@ -98,7 +232,8 @@ io.on("connection", socket => {
   });
 });
 
-// Boucle d'update des potions : déplacement, collisions, effets
+// ----------- Update potions -----------
+
 setInterval(() => {
   for (let i = potions.length - 1; i >= 0; i--) {
     const p = potions[i];
@@ -112,58 +247,55 @@ setInterval(() => {
     const dy = p.y - p.startY;
     const dist = Math.hypot(dx, dy);
 
-    // Suppression si trop loin ou hors carte
+    // Suppression potion hors limite ou collision mur
     if (
       dist > MAX_DISTANCE ||
       p.x < 0 || p.x > map.width ||
-      p.y < 0 || p.y > map.height
+      p.y < 0 || p.y > map.height ||
+      isPotionCollidingWithWall(p)
     ) {
       potions.splice(i, 1);
       continue;
     }
 
-    // Collision avec joueurs
+    // Collision avec joueurs (sauf propriétaire)
     for (const id in players) {
-      if (id === p.ownerId) continue; // pas se blesser soi-même
+      if (id === p.ownerId) continue;
 
       const target = players[id];
       const d = Math.hypot(p.x - target.x, p.y - target.y);
 
-      if (d < 30) { // collision
+      if (d < 30) {
         target.health -= 25;
 
         if (target.health <= 0) {
-          // Score + respawn
-          scores[p.ownerId] = (scores[p.ownerId] || 0) + 1;
-          target.health = 100;
-          target.x = Math.random() * map.width;
-          target.y = Math.random() * map.height;
-          // La mise à jour client se fera dans applyEffect
+          const owner = players[p.ownerId];
+          if (owner) {
+            owner.score = (owner.score || 0) + 1;
+          }
+          handleDeath(id);
         }
 
-        // Socket du joueur touché
+        // Appliquer effet
         const targetSocket = io.sockets.sockets.get(id);
+        applyEffect(p.effect, target, id, p.ownerId, null, players, io, map, targetSocket);
 
-        // Applique l'effet au joueur touché
-        applyEffect(p.effect, target, id, p.ownerId, scores, players, io, map, targetSocket);
-
-        // Suppression de la potion
+        // Supprimer potion
         potions.splice(i, 1);
         break;
       }
     }
   }
 
-  // Envoie l'état des potions à tous les clients
   io.emit("potionsUpdate", potions);
 }, 50);
 
-// Envoie régulier de la liste des joueurs (position + vie)
+// ----------- Envoi régulier de l'état -----------
+
 setInterval(() => {
   io.emit("playersUpdate", players);
 }, 50);
 
-// Envoie périodique des vies en bulk
 setInterval(() => {
   const allPlayersHealth = {};
   for (const id in players) {
@@ -181,4 +313,3 @@ const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log("Server listening on port", PORT);
 });
-
