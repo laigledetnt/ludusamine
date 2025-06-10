@@ -14,7 +14,7 @@ const otherPlayers = {};
 const mouse = { x: canvas.width / 2, y: canvas.height / 2 };
 let touchActive = false;
 const localPlayers = {}; 
- 
+ uug
 const player = {
   x: canvas.width / 2,
   y: canvas.height / 2,
