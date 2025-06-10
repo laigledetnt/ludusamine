@@ -13,6 +13,7 @@ const potions = [];
 const otherPlayers = {};
 const mouse = { x: canvas.width / 2, y: canvas.height / 2 };
 let touchActive = false;
+const localPlayers = {};
 
 const player = {
   x: canvas.width / 2,
@@ -130,15 +131,6 @@ socket.on("playerMoved", data => {
   } else {
     if (!otherPlayers[data.id]) otherPlayers[data.id] = {};
     Object.assign(otherPlayers[data.id], data);
-  }
-});
-socket.on("playersUpdate", (players) => {
-  for (const id in players) {
-    if (!localPlayers[id]) {
-      localPlayers[id] = createPlayer(players[id]);
-    } else {
-      Object.assign(localPlayers[id], players[id]);
-    }
   }
 });
 
