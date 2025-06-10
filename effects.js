@@ -61,7 +61,7 @@ const emitHealthUpdate = () => {
         target.isIgnisamine = true;
         let tick = 0;
         const totalTicks = 6;
-        const intervalTime = 10000;
+        const intervalTime = 5000;
         const maxDamage = 50
         const damage = maxDamage / totalTicks;
 
